@@ -1,3 +1,30 @@
+var tcpStacks = (function () {
+    var $net = require('net');
+    var $createConnection = $net.createConnection;
+
+    var stacks = {};
+
+    $net.createConnection = function fakeCreateConnection() {
+        var stack = new Error().stack;
+
+        var $socket = $createConnection.apply(this, arguments);
+
+        $socket.once('connect', function onConnect() {
+            var fd = $socket._handle.fd;
+
+            if (!stacks[fd]) {
+                stacks[fd] = [];
+            }
+            stacks[fd].push(stack);
+        });
+        // console.log('sock', $socket._handle);
+
+        return $socket;
+    };
+
+    return stacks;
+}());
+
 var timeoutStacks = (function () {
     var $timers = require('timers');
     var $setInterval = $timers.setInterval;
@@ -5,7 +32,7 @@ var timeoutStacks = (function () {
 
     var stacks = {};
 
-    global.setInterval = function (fn, timeout) {
+    global.setInterval = function fakeSetInterval(fn, timeout) {
         var stack = new Error().stack;
 
         if (!stacks[timeout]) {
@@ -14,9 +41,9 @@ var timeoutStacks = (function () {
         stacks[timeout].push(stack);
 
         return $setInterval.apply(this, arguments);
-    }
+    };
     $timers.setInterval = global.setInterval;
-    global.setTimeout = setTimeout = function (fn, timeout) {
+    global.setTimeout = function fakeSetTimeout(fn, timeout) {
         var stack = new Error().stack;
 
         if (!stacks[timeout]) {
@@ -25,12 +52,37 @@ var timeoutStacks = (function () {
         stacks[timeout].push(stack);
 
         return $setTimeout.apply(this, arguments);
-    }
+    };
     $timers.setTimeout = global.setTimeout;
 
     return stacks;
 }());
 
+var httpStacks = (function () {
+    var $http = require('http');
+    var $request = $http.request;
+
+    var stacks = {};
+
+    $http.request = function fakeRequest(options) {
+        var stack = new Error().stack;
+
+        var host = (options && options.host) ||
+            (options && options.hostname) || 'void';
+
+        if (!stacks[host]) {
+            stacks[host] = [];
+        }
+        stacks[host].push(stack);
+
+        return $request.apply(this, arguments);
+    };
+
+    return stacks;
+}());
+
+var path = require('path');
+var nodeModules = path.sep + 'node_modules' + path.sep;
 var setInterval = require('timers').setInterval;
 
 var intervalHandle = setInterval(function handleInspectionLoop() {
@@ -71,6 +123,8 @@ var intervalHandle = setInterval(function handleInspectionLoop() {
                 String(obj._events.close).indexOf('maybeClose') !== -1
             ) {
                 printChildProcessStream(obj);
+            } else if (obj._httpMessage) {
+                printHttpStream(obj, 'http stream');
             } else {
                 printStream(obj, 'stream handle');
             }
@@ -94,17 +148,7 @@ var intervalHandle = setInterval(function handleInspectionLoop() {
         console.log(msg);
 
         if (obj.msecs && timeoutStacks[obj.msecs]) {
-            var stackMsg = 'timer handle leaked at one of: \n' +
-                timeoutStacks[obj.msecs].map(function print(s) {
-                    var lines = s.split('\n');
-                    return lines[2];
-                }).reduce(function (acc, i) {
-                    if (acc.indexOf(i) === -1) {
-                        acc.push(i);
-                    }
-                    return acc;
-                }, []).join('\n');
-            console.log(stackMsg);
+            printStack(timeoutStacks, obj.msecs, 'timer handle');
         }
 
         if (!idleTimer) {
@@ -115,6 +159,69 @@ var intervalHandle = setInterval(function handleInspectionLoop() {
         }
 
         console.log('');
+    }
+
+    function stackLineType(line) {
+        var type;
+        if (line.indexOf(nodeModules) >= 0) {
+            type = "node_modules";
+        } else if (line.indexOf(path.sep) >= 0) {
+            type = "default";
+        } else if (line.substring(0, 5) === 'Error') {
+            type = "error";
+        } else {
+            type = "node";
+        }
+        return type;
+    }
+     
+
+    function printStack(stacks, key, msg) {
+        var stackMsg = msg + ' leaked at one of: \n' +
+            stacks[key].map(function print(s) {
+                var lines = s.split('\n');
+
+                lines = lines.filter(function (line) {
+                    var type = stackLineType(line);
+                    return type === "node_modules" ||
+                        type === "default";
+                });
+
+                return lines[2];
+            }).reduce(function (acc, i) {
+                if (acc.indexOf(i) === -1) {
+                    acc.push(i);
+                }
+                return acc;
+            }, []).join('\n');
+        console.log(stackMsg);
+    }
+
+    function printHttpStream(obj, phrase) {
+        var fd = obj._handle && obj._handle.fd;
+        var readable = obj.readable;
+        var writable = obj.writable;
+
+        var _httpMessage = obj._httpMessage;
+
+        var host = _httpMessage && _httpMessage._headers &&
+            _httpMessage._headers.host;
+
+        if (host && httpStacks[host]) {
+            printStack(httpStacks, host, 'http handle');
+        } else if (fd && tcpStacks[fd]) {
+            printStack(tcpStacks, fd, 'tcp handle');
+        }
+
+        console.log(phrase, {
+            fd: fd,
+            readable: readable,
+            writable: writable,
+            address: obj.address(),
+            method: _httpMessage && _httpMessage.method,
+            path: _httpMessage && _httpMessage.path,
+            host: host
+        });
     }
 
     function printStream(obj, phrase) {
