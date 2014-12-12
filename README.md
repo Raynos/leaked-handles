@@ -18,6 +18,28 @@ Detect any handles leaked in node
 require("leaked-handles");
 ```
 
+## Example output.
+
+```
+no of handles 1
+
+timer handle (`setTimeout(any, 1000)`)
+timer handle leaked at one of: 
+    at Test.t (/home/raynos/uber/leaked-handles/test/leak-timer.js:10:17)
+timer listener function any() {}
+
+
+no of handles 1
+tcp handle leaked at one of: 
+    at Test.bound [as _cb] (/home/raynos/uber/leaked-handles/node_modules/tape/lib/test.js:60:32)
+tcp stream { fd: 10,
+  readable: false,
+  writable: true,
+  address: { address: '127.0.0.1', family: 'IPv4', port: 39097 } }
+```
+
+## Explanation
+
 Add this to the TOP of your tests as the very first require.
 
 This will now print any handles that keep your process open.
