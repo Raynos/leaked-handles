@@ -18,10 +18,11 @@
   ],
   "dependencies": {},
   "devDependencies": {
-    "tape": "^2.12.3",
     "jshint": "^2.5.0",
+    "lint-trap": "^0.4.9",
+    "pre-commit": "0.0.5",
     "tap-spec": "^0.1.8",
-    "pre-commit": "0.0.5"
+    "tape": "^2.12.3"
   },
   "licenses": [
     {
