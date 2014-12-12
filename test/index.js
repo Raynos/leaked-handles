@@ -1,8 +1,4 @@
-var test = require('tape');
-
-var leakedHandles = require('../index.js');
-
-test('leakedHandles is a function', function (assert) {
-    assert.equal(typeof leakedHandles, 'function');
-    assert.end();
-});
+require('./leak-timer.js');
+require('./leak-tcp.js');
+require('./leak-http.js');
+// require('./leak-child-process.js');
