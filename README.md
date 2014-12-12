@@ -31,11 +31,11 @@ timer listener function any() {}
 
 no of handles 1
 tcp handle leaked at one of: 
-    at Test.bound [as _cb] (/home/raynos/uber/leaked-handles/node_modules/tape/lib/test.js:60:32)
+    at Test.t (/home/raynos/uber/leaked-handles/test/leak-tcp.js:9:22)
 tcp stream { fd: 10,
   readable: false,
   writable: true,
-  address: { address: '127.0.0.1', family: 'IPv4', port: 39097 } }
+  address: { address: '127.0.0.1', family: 'IPv4', port: 39126 } }
 ```
 
 ## Explanation
