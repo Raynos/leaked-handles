@@ -12,7 +12,6 @@ test('leak a http request', function t(assert) {
         method: 'GET'
     }, function onResponse(resp) {
         var logger = FakeLogger();
-        var logs = logger.logs;
         printHandles(logger);
 
         assert.ok(logger.contains('no of handles 1'));

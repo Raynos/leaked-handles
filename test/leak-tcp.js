@@ -9,7 +9,6 @@ test('leak a socket', function t(assert) {
     var socket = net.createConnection();
 
     var logger = FakeLogger();
-    var logs = logger.logs;
     printHandles(logger);
 
     assert.ok(logger.contains('no of handles 1'));

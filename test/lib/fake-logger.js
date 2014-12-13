@@ -1,4 +1,6 @@
 var util = require('util');
+var process = require('process');
+var console = require('console');
 
 module.exports = FakeLogger;
 

@@ -1,132 +1,7 @@
-function applyKeyedList(obj, key, v) {
-    if (!obj[key]) {
-        obj[key] = [];
-    }
-
-    obj[key].push(v);
-}
-
-var childProcessStacks = (function () {
-    var $childProcess = require('child_process');
-    var $spawn = $childProcess.spawn;
-
-    var stacks = {
-        fds: {},
-        pids: {}
-    };
-
-    $childProcess.spawn = function fakeSpawn() {
-        var stack = new Error().stack;
-
-        var proc = $spawn.apply(this, arguments);
-
-        if (proc.pid) {
-            applyKeyedList(stacks.pids, proc.pid, stack);
-        }
-        
-        proc.stdio.forEach(function store(ioHandle) {
-            var fd = ioHandle && ioHandle._handle &&
-                ioHandle._handle.fd;
-
-            if (fd) {
-                applyKeyedList(stacks.fds, fd, stack);
-            }
-        })
-
-        return proc;
-    };
-
-    return stacks;
-}());
-
-var tcpStacks = (function () {
-    var $net = require('net');
-    var $createConnection = $net.createConnection;
-
-    var stacks = {
-        fds: {},
-        ports: {}
-    };
-
-    $net.createConnection = function fakeCreateConnection() {
-        var stack = new Error().stack;
-
-        var $socket = $createConnection.apply(this, arguments);
-        var $addr = $socket.address();
-
-        if ($addr && $addr.port) {
-            var port = $addr.port;
-            applyKeyedList(stacks.ports, port, stack);
-        } else if ($socket && $socket._handle && $socket._handle.fd) {
-            var fd = $socket._handle.fd;
-            applyKeyedList(stacks.fds, fd, stack);
-        } else {
-            $socket.once('connect', function onConnect() {
-                var $addr = $socket.address();
-                if ($addr && $addr.port) {
-                    var port = $addr.port;
-                    applyKeyedList(stacks.ports, port, stack);
-                } else {
-                    var fd = $socket._handle.fd;
-                    applyKeyedList(stacks.fds, fd, stack);
-                }
-            });
-        }
-
-        return $socket;
-    };
-
-    return stacks;
-}());
-
-var timeoutStacks = (function () {
-    var $timers = require('timers');
-    var $setInterval = $timers.setInterval;
-    var $setTimeout = $timers.setTimeout;
-
-    var stacks = {};
-
-    global.setInterval = function fakeSetInterval(fn, timeout) {
-        var stack = new Error().stack;
-
-        applyKeyedList(stacks, timeout, stack);
-
-        return $setInterval.apply(this, arguments);
-    };
-    $timers.setInterval = global.setInterval;
-    global.setTimeout = function fakeSetTimeout(fn, timeout) {
-        var stack = new Error().stack;
-
-        applyKeyedList(stacks, timeout, stack);
-
-        return $setTimeout.apply(this, arguments);
-    };
-    $timers.setTimeout = global.setTimeout;
-
-    return stacks;
-}());
-
-var httpStacks = (function () {
-    var $http = require('http');
-    var $request = $http.request;
-
-    var stacks = {};
-
-    $http.request = function fakeRequest(options) {
-        var stack = new Error().stack;
-
-        var host = (options && options.host) ||
-            (options && options.hostname) || 'void';
-
-        applyKeyedList(stacks, host, stack);
-
-        return $request.apply(this, arguments);
-    };
-
-    return stacks;
-}());
+var stacks = require('./stacks.js');
 
 var path = require('path');
+var process = require('process');
 var nodeModules = path.sep + 'node_modules' + path.sep;
 var INTERVAL_HANDLE_TIMEOUT = 5001;
 
@@ -150,6 +25,7 @@ function printHandles(console) {
     console.log('');
 
     function printHandle(obj) {
+        console.log('');
         if ('ontimeout' in obj) {
             if (obj && obj.msecs &&
                 obj.msecs === INTERVAL_HANDLE_TIMEOUT
@@ -166,9 +42,7 @@ function printHandles(console) {
             // then stare really hard at the source code
             // console.log(obj._events.end.toString());
 
-            var fd = obj && obj._handle && obj._handle.fd;
-
-            if (fd && childProcessStacks.fds[fd]) {
+            if (stacks.childProcess.get(obj)) {
                 printChildProcessStream(obj);
             } else if (obj._httpMessage) {
                 printHttpStream(obj, 'http stream');
@@ -196,8 +70,9 @@ function printHandles(console) {
             ', ' + obj.msecs + ')`)';
         console.log(msg);
 
-        if (obj.msecs && timeoutStacks[obj.msecs]) {
-            printStack(timeoutStacks[obj.msecs], 'timer handle');
+        if (obj.msecs && stacks.timeout[obj.msecs]) {
+            printStack(stacks.timeout[obj.msecs],
+                'timer handle');
         }
 
         if (!idleTimer) {
@@ -224,9 +99,13 @@ function printHandles(console) {
         return type;
     }
      
-
     function printStack(stacks, msg, opts) {
         opts = opts || {};
+
+        if (typeof stacks === 'string') {
+            stacks = [stacks];
+        }
+
         var stackMsg = msg + ' leaked at one of: \n' +
             stacks.map(function print(s) {
                 var lines = s.split('\n');
@@ -249,14 +128,11 @@ function printHandles(console) {
 
     function printTcpStream(obj, phrase) {
         var fd = obj._handle && obj._handle.fd;
-        var port = obj.address() && obj.address().port;
         var readable = obj.readable;
         var writable = obj.writable;
 
-        if (port && tcpStacks.ports[port]) {
-            printStack(tcpStacks.ports[port], 'tcp handle');
-        } else if (fd && tcpStacks.fds[fd]) {
-            printStack(tcpStacks.fds[fd], 'tcp handle');
+        if (stacks.tcp.get(obj)) {
+            printStack(stacks.tcp.get(obj).stack, 'tcp handle');
         }
 
         console.log(phrase, {
@@ -269,21 +145,19 @@ function printHandles(console) {
 
     function printHttpStream(obj, phrase) {
         var fd = obj._handle && obj._handle.fd;
-        var port = obj.address() && obj.address().port;
         var readable = obj.readable;
         var writable = obj.writable;
 
-        var _httpMessage = obj._httpMessage;
+        var httpRequest = obj._httpMessage;
 
-        var host = _httpMessage && _httpMessage._headers &&
-            _httpMessage._headers.host;
+        var host = httpRequest && httpRequest._headers &&
+            httpRequest._headers.host;
 
-        if (host && httpStacks[host]) {
-            printStack(httpStacks[host], 'http handle');
-        } else if (port && tcpStacks.ports[port]) {
-            printStack(tcpStacks.ports[port], 'tcp handle');
-        } else if (fd && tcpStacks.fds[fd]) {
-            printStack(tcpStacks.fds[fd], 'tcp handle');
+        if (httpRequest && stacks.http.get(httpRequest)) {
+            printStack(stacks.http.get(httpRequest).stack,
+                'http handle');
+        } else if (stacks.tcp.get(obj)) {
+            printStack(stacks.tcp.get(obj).stack, 'tcp handle');
         }
 
         console.log(phrase, {
@@ -291,8 +165,8 @@ function printHandles(console) {
             readable: readable,
             writable: writable,
             address: obj.address(),
-            method: _httpMessage && _httpMessage.method,
-            path: _httpMessage && _httpMessage.path,
+            method: httpRequest && httpRequest.method,
+            path: httpRequest && httpRequest.path,
             host: host
         });
     }
@@ -310,12 +184,29 @@ function printHandles(console) {
     }
 
     function printChildProcessStream(obj) {
-        printStream(obj, 'child process stdio stream handle');
+        if (stacks.childProcess.get(obj)) {
+            var meta = stacks.childProcess.get(obj);
+            printStack(meta.stack,
+                'child process ' + meta.type + ' stream handle');
+            printStream(obj,
+                'child process ' + meta.type + ' stream handle');
+        } else {
+            printStream(obj,
+                'child process stdio stream handle');
+        }
     }
 
     function printChildProcess(obj) {
+        var meta = stacks.childProcess.get(obj);
+
+        if (meta) {
+            printStack(meta.stack, 'child process handle');
+        }
+
         console.log('child process handle', {
-            pid: obj.pid
+            pid: obj.pid,
+            cmd: meta && meta.command,
+            args: meta && meta.args
         });
     }
 }

@@ -1,5 +1,6 @@
 var printHandles = require('./print-handles.js');
 
+var console = require('console');
 var setInterval = require('timers').setInterval;
 
 var intervalHandle = setInterval(function handleInspectionLoop() {

@@ -2,6 +2,7 @@ var printHandles = require('../print-handles.js');
 
 var test = require('tape');
 var spawn = require('child_process').spawn;
+var process = require('process');
 
 var FakeLogger = require('./lib/fake-logger.js');
 
@@ -10,16 +11,22 @@ test('leak a child process', function t(assert) {
 
     process.nextTick(function () {
         var logger = FakeLogger();
-        var logs = logger.logs;
         printHandles(logger);
 
-        // assert.ok(logger.contains('no of handles 1'));
-        // assert.ok(logger.contains('http handle leaked'));
-        // assert.ok(logger.contains('test/leak-http.js:9:20'));
-        // assert.ok(logger.contains('host: \'www.google.com\''));
-        // assert.ok(logger.contains('fd: ' + req.socket._handle.fd));
-        // assert.ok(logger.contains('method: \'GET\''));
-        // assert.ok(logger.contains('path: \'/\''));
+        assert.ok(logger.contains('no of handles 4'));
+        assert.ok(logger.contains(
+            'child process handle leaked'));
+        assert.ok(logger.contains(
+            'test/leak-child-process.js:10:16'));
+        assert.ok(logger.contains('cmd: \'ps\''));
+        assert.ok(logger.contains('args: [ \'aux\' ]'));
+
+        assert.ok(logger.contains(
+            'child process stdout stream handle leaked'));
+        assert.ok(logger.contains(
+            'child process stdin stream handle leaked'));
+        assert.ok(logger.contains(
+            'child process stderr stream handle leaked'));
 
         proc.kill();
 

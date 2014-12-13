@@ -16,7 +16,10 @@
       "name": "Raynos"
     }
   ],
-  "dependencies": {},
+  "dependencies": {
+    "process": "^0.10.0",
+    "weakmap-shim": "^1.1.0"
+  },
   "devDependencies": {
     "jshint": "^2.5.0",
     "lint-trap": "^0.4.9",
