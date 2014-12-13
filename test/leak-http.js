@@ -23,9 +23,11 @@ test('leak a http request', function t(assert) {
         assert.ok(logger.contains('method: \'GET\''));
         assert.ok(logger.contains('path: \'/\''));
 
-        resp.destroy();
+        req.once('close', function () {
+            assert.end();
+        });
 
-        assert.end();
+        req.destroy();
     });
 
     req.end();

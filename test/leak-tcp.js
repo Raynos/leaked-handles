@@ -18,7 +18,9 @@ test('leak a socket', function t(assert) {
     assert.ok(logger.contains('address: \'127.0.0.1\''));
     assert.ok(logger.contains('fd: ' + socket._handle.fd));
 
-    socket.destroy();
+    socket.once('close', function () {
+        assert.end();
+    })
 
-    assert.end();
+    socket.destroy();
 });

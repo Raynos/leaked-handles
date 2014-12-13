@@ -6,24 +6,70 @@ function applyKeyedList(obj, key, v) {
     obj[key].push(v);
 }
 
+var childProcessStacks = (function () {
+    var $childProcess = require('child_process');
+    var $spawn = $childProcess.spawn;
+
+    var stacks = {
+        fds: {},
+        pids: {}
+    };
+
+    $childProcess.spawn = function fakeSpawn() {
+        var stack = new Error().stack;
+
+        var proc = $spawn.apply(this, arguments);
+
+        if (proc.pid) {
+            applyKeyedList(stacks.pids, proc.pid, stack);
+        }
+        
+        proc.stdio.forEach(function store(ioHandle) {
+            var fd = ioHandle && ioHandle._handle &&
+                ioHandle._handle.fd;
+
+            if (fd) {
+                applyKeyedList(stacks.fds, fd, stack);
+            }
+        })
+
+        return proc;
+    };
+
+    return stacks;
+}());
+
 var tcpStacks = (function () {
     var $net = require('net');
     var $createConnection = $net.createConnection;
 
-    var stacks = {};
+    var stacks = {
+        fds: {},
+        ports: {}
+    };
 
     $net.createConnection = function fakeCreateConnection() {
         var stack = new Error().stack;
 
         var $socket = $createConnection.apply(this, arguments);
+        var $addr = $socket.address();
 
-        if ($socket && $socket._handle && $socket._handle.fd) {
+        if ($addr && $addr.port) {
+            var port = $addr.port;
+            applyKeyedList(stacks.ports, port, stack);
+        } else if ($socket && $socket._handle && $socket._handle.fd) {
             var fd = $socket._handle.fd;
-            applyKeyedList(stacks, fd, stack);
+            applyKeyedList(stacks.fds, fd, stack);
         } else {
             $socket.once('connect', function onConnect() {
-                var fd = $socket._handle.fd;
-                applyKeyedList(stacks, fd, stack);
+                var $addr = $socket.address();
+                if ($addr && $addr.port) {
+                    var port = $addr.port;
+                    applyKeyedList(stacks.ports, port, stack);
+                } else {
+                    var fd = $socket._handle.fd;
+                    applyKeyedList(stacks.fds, fd, stack);
+                }
             });
         }
 
@@ -120,11 +166,9 @@ function printHandles(console) {
             // then stare really hard at the source code
             // console.log(obj._events.end.toString());
 
-            if (obj._events &&
-                obj._events.close &&
-                typeof obj._events.close === 'function' &&
-                String(obj._events.close).indexOf('maybeClose') !== -1
-            ) {
+            var fd = obj && obj._handle && obj._handle.fd;
+
+            if (fd && childProcessStacks.fds[fd]) {
                 printChildProcessStream(obj);
             } else if (obj._httpMessage) {
                 printHttpStream(obj, 'http stream');
@@ -205,11 +249,14 @@ function printHandles(console) {
 
     function printTcpStream(obj, phrase) {
         var fd = obj._handle && obj._handle.fd;
+        var port = obj.address() && obj.address().port;
         var readable = obj.readable;
         var writable = obj.writable;
 
-        if (fd && tcpStacks[fd]) {
-            printStack(tcpStacks[fd], 'tcp handle');
+        if (port && tcpStacks.ports[port]) {
+            printStack(tcpStacks.ports[port], 'tcp handle');
+        } else if (fd && tcpStacks.fds[fd]) {
+            printStack(tcpStacks.fds[fd], 'tcp handle');
         }
 
         console.log(phrase, {
@@ -222,6 +269,7 @@ function printHandles(console) {
 
     function printHttpStream(obj, phrase) {
         var fd = obj._handle && obj._handle.fd;
+        var port = obj.address() && obj.address().port;
         var readable = obj.readable;
         var writable = obj.writable;
 
@@ -232,8 +280,10 @@ function printHandles(console) {
 
         if (host && httpStacks[host]) {
             printStack(httpStacks[host], 'http handle');
-        } else if (fd && tcpStacks[fd]) {
-            printStack(tcpStacks[fd], 'tcp handle');
+        } else if (port && tcpStacks.ports[port]) {
+            printStack(tcpStacks.ports[port], 'tcp handle');
+        } else if (fd && tcpStacks.fds[fd]) {
+            printStack(tcpStacks.fds[fd], 'tcp handle');
         }
 
         console.log(phrase, {
