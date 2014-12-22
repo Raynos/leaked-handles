@@ -1,9 +1,15 @@
+'use strict';
+
 var printHandles = require('./print-handles.js');
 
 var console = require('console');
-var setInterval = require('timers').setInterval;
+var setTimeout = require('timers').setTimeout;
 
-var intervalHandle = setInterval(function handleInspectionLoop() {
+var timeoutHandle = setTimeout(function handleInspectionLoop() {
     printHandles(console);
+
+    timeoutHandle = setTimeout(handleInspectionLoop,
+        printHandles.INTERVAL_HANDLE_TIMEOUT);
+    timeoutHandle.unref();
 }, printHandles.INTERVAL_HANDLE_TIMEOUT); // use semi-random semi-unique timeout
-intervalHandle.unref();
+timeoutHandle.unref();
