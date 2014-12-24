@@ -56,6 +56,10 @@ function printHandles(console, config) {
             }
         } else if ('pid' in obj) {
             printChildProcess(obj);
+        } else if ('connections' in obj &&
+            'httpAllowHalfOpen' in obj
+        ) {
+            printHttpServer(obj);
         } else {
             console.log('unknown handle', obj);
         }
@@ -153,6 +157,20 @@ function printHandles(console, config) {
         });
     }
 
+    function printHttpServer(obj) {
+        var fd = obj._handle && obj._handle.fd;
+
+        if (stacks.http.servers.get(obj)) {
+            printStack(stacks.http.servers.get(obj).stack,
+                'http server handle');
+        }
+
+        console.log('http server handle', {
+            fd: fd,
+            address: obj.address()
+        });
+    }
+
     function printHttpStream(obj, phrase) {
         var fd = obj._handle && obj._handle.fd;
         var readable = obj.readable;
@@ -163,8 +181,8 @@ function printHandles(console, config) {
         var host = httpRequest && httpRequest._headers &&
             httpRequest._headers.host;
 
-        if (httpRequest && stacks.http.get(httpRequest)) {
-            printStack(stacks.http.get(httpRequest).stack,
+        if (httpRequest && stacks.http.requests.get(httpRequest)) {
+            printStack(stacks.http.requests.get(httpRequest).stack,
                 'http handle');
         } else if (stacks.tcp.get(obj)) {
             printStack(stacks.tcp.get(obj).stack, 'tcp handle');

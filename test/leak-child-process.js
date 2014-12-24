@@ -30,6 +30,6 @@ test('leak a child process', function t(assert) {
 
         proc.kill();
 
-        assert.end();
+        proc.once('close', assert.end);
     });
 });

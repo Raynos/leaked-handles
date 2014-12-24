@@ -135,15 +135,17 @@ var timeoutStacks = (function () {
 var httpStacks = (function () {
     var $http = require('http');
     var $request = $http.request;
+    var $createServer = $http.createServer;
 
-    var store = createStore();
+    var requestStore = createStore();
+    var serverStore = createStore();
 
-    $http.request = function fakeRequest(options) {
+    $http.request = function fakeRequest() {
         var stack = new Error().stack;
 
         var $req = $request.apply(this, arguments);
 
-        var value = store($req);
+        var value = requestStore($req);
         value.meta = {
             stack: stack
         };
@@ -151,7 +153,23 @@ var httpStacks = (function () {
         return $req;
     };
 
-    return Box(store);
+    $http.createServer = function fakeCreateServer() {
+        var stack = new Error().stack;
+
+        var $server = $createServer.apply(this, arguments);
+
+        var value = serverStore($server);
+        value.meta = {
+            stack: stack
+        };
+
+        return $server;
+    };
+
+    return {
+        requests: Box(requestStore),
+        servers: Box(serverStore)
+    };
 }());
 
 module.exports = {
