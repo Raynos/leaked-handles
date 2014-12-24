@@ -38,6 +38,15 @@ tcp stream { fd: 10,
   address: { address: '127.0.0.1', family: 'IPv4', port: 39126 } }
 ```
 
+## Options
+
+```js
+require('leaked-handles').set({
+    fullStack: true, // use full stack traces
+    timeout: 30000 // run every 30 seconds instead of 5.
+});
+```
+
 ## Explanation
 
 Add this to the TOP of your tests as the very first require.

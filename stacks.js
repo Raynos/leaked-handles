@@ -96,6 +96,7 @@ var timeoutStacks = (function () {
     var $setTimeout = $timers.setTimeout;
 
     var stacks = {};
+    var store = createStore();
 
     /*globals global*/
     global.setInterval = function fakeSetInterval(fn, timeout) {
@@ -108,6 +109,7 @@ var timeoutStacks = (function () {
         return $timer;
     };
     $timers.setInterval = global.setInterval;
+
     global.setTimeout = function fakeSetTimeout(fn, timeout) {
         var stack = new Error().stack;
 
@@ -115,11 +117,19 @@ var timeoutStacks = (function () {
 
         applyKeyedList(stacks, timeout, stack);
 
+        var value = store($timer);
+        value.meta = {
+            stack: stack
+        };
+
         return $timer;
     };
     $timers.setTimeout = global.setTimeout;
 
-    return stacks;
+    return {
+        stacks: stacks,
+        box: Box(store)
+    };
 }());
 
 var httpStacks = (function () {

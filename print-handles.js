@@ -1,20 +1,23 @@
+'use strict';
+
 var stacks = require('./stacks.js');
 
 var path = require('path');
 var process = require('process');
 var nodeModules = path.sep + 'node_modules' + path.sep;
-var INTERVAL_HANDLE_TIMEOUT = 5001;
 
-printHandles.INTERVAL_HANDLE_TIMEOUT = INTERVAL_HANDLE_TIMEOUT;
+printHandles.INTERVAL_HANDLE_TIMEOUT = 5001;
 
 module.exports = printHandles;
 
-function printHandles(console) {
+function printHandles(console, config) {
+    config = config || {};
+
     var handles = process._getActiveHandles();
     var requests = process._getActiveRequests();
 
     if (requests.length > 0) {
-        console.log ('no of requests', requests.length);
+        console.log('no of requests', requests.length);
     }
 
     console.log('');
@@ -28,7 +31,7 @@ function printHandles(console) {
         console.log('');
         if ('ontimeout' in obj) {
             if (obj && obj.msecs &&
-                obj.msecs === INTERVAL_HANDLE_TIMEOUT
+                obj.msecs === printHandles.INTERVAL_HANDLE_TIMEOUT
             ) {
                 console.log('timer handle (handleInspectLoop)');
             } else if (obj && obj._repeat) {
@@ -66,12 +69,17 @@ function printHandles(console) {
 
         var fnName = idleTimer && idleTimer._onTimeout &&
             idleTimer._onTimeout.name || 'fn';
-        var msg = 'timer handle (`' + name + '(' + fnName + 
+        var msg = 'timer handle (`' + name + '(' + fnName +
             ', ' + obj.msecs + ')`)';
         console.log(msg);
 
-        if (obj.msecs && stacks.timeout[obj.msecs]) {
-            printStack(stacks.timeout[obj.msecs],
+        if (obj.msecs && stacks.timeout.box.get(obj)) {
+            printStack(stacks.timeout.box.get(obj).stack,
+                'timer handle');
+        } else if (obj.msecs &&
+            stacks.timeout.stacks[obj.msecs]
+        ) {
+            printStack(stacks.timeout.stacks[obj.msecs],
                 'timer handle');
         }
 
@@ -98,7 +106,7 @@ function printHandles(console) {
         }
         return type;
     }
-     
+
     function printStack(stacks, msg, opts) {
         opts = opts || {};
 
@@ -116,13 +124,15 @@ function printHandles(console) {
                         type === 'default';
                 });
 
-                return lines[opts.frameOffset || 1];
+                return config.fullStack ?
+                    lines.join('\n') :
+                    lines[opts.frameOffset || 1];
             }).reduce(function (acc, i) {
                 if (acc.indexOf(i) === -1) {
                     acc.push(i);
                 }
                 return acc;
-            }, []).join('\n');
+            }, []).join('\n\n\n');
         console.log(stackMsg);
     }
 

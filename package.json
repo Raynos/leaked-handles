@@ -18,11 +18,12 @@
   ],
   "dependencies": {
     "process": "^0.10.0",
-    "weakmap-shim": "^1.1.0"
+    "weakmap-shim": "^1.1.0",
+    "xtend": "^4.0.0"
   },
   "devDependencies": {
     "jshint": "^2.5.0",
-    "lint-trap": "^0.4.9",
+    "lint-trap": "git://github.com/Raynos/lint-trap",
     "pre-commit": "0.0.5",
     "tap-spec": "^0.1.8",
     "tape": "^2.12.3"
@@ -36,8 +37,6 @@
   "scripts": {
     "test": "NODE_ENV=test node test/index.js | tap-spec",
     "unit-test": "NODE_ENV=test node test/index.js | tap-spec",
-    "jshint-pre-commit": "jshint --verbose $(git diff --cached --name-only | grep '\\.js$')",
-    "jshint": "jshint --verbose .",
     "cover": "istanbul cover --report none --print detail test/index.js",
     "view-cover": "istanbul report html && open ./coverage/index.html",
     "travis": "npm run cover -s && istanbul report lcov && ((cat coverage/lcov.info | coveralls) || exit 0)",
@@ -48,7 +47,6 @@
     "node": ">= 0.8.x"
   },
   "pre-commit": [
-    "jshint-pre-commit",
     "unit-test"
   ],
   "ngen-version": "4.0.3"

@@ -3,13 +3,35 @@
 var printHandles = require('./print-handles.js');
 
 var console = require('console');
+var process = require('process');
 var setTimeout = require('timers').setTimeout;
+var mutableExtend = require('xtend/mutable');
 
-var timeoutHandle = setTimeout(function handleInspectionLoop() {
-    printHandles(console);
+var mutableConfig = {};
 
-    timeoutHandle = setTimeout(handleInspectionLoop,
-        printHandles.INTERVAL_HANDLE_TIMEOUT);
+module.exports = {
+    set: function set(opts) {
+        mutableExtend(mutableConfig, opts);
+
+        if ('timeout' in opts) {
+            printHandles.INTERVAL_HANDLE_TIMEOUT = opts.timeout +
+                Math.floor(Math.random() * 100);
+        }
+
+        return this;
+    },
+    printHandles: function $printHandles() {
+        printHandles(console, mutableConfig);
+    }
+};
+
+process.nextTick(function onTick() {
+    var timeoutHandle = setTimeout(function handleInspectionLoop() {
+        printHandles(console, mutableConfig);
+
+        timeoutHandle = setTimeout(handleInspectionLoop,
+            printHandles.INTERVAL_HANDLE_TIMEOUT);
+        timeoutHandle.unref();
+    }, printHandles.INTERVAL_HANDLE_TIMEOUT);
     timeoutHandle.unref();
-}, printHandles.INTERVAL_HANDLE_TIMEOUT); // use semi-random semi-unique timeout
-timeoutHandle.unref();
+});
