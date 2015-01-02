@@ -160,7 +160,8 @@ function printHandle(obj, console, config) {
             fd: fd,
             readable: readable,
             writable: writable,
-            address: obj.address()
+            address: obj.address(),
+            serverAddr: obj.server && obj.server.address()
         });
     }
 
