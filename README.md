@@ -43,7 +43,8 @@ tcp stream { fd: 10,
 ```js
 require('leaked-handles').set({
     fullStack: true, // use full stack traces
-    timeout: 30000 // run every 30 seconds instead of 5.
+    timeout: 30000, // run every 30 seconds instead of 5.
+    debugSockets: true // pretty print tcp thrown exceptions.
 });
 ```
 
