@@ -1,6 +1,7 @@
 'use strict';
 
 var printHandles = require('./print-handles.js');
+var printHandle = require('./print-handle.js');
 
 var console = require('console');
 var process = require('process');
@@ -14,7 +15,7 @@ module.exports = {
         mutableExtend(mutableConfig, opts);
 
         if ('timeout' in opts) {
-            printHandles.INTERVAL_HANDLE_TIMEOUT = opts.timeout +
+            printHandle.INTERVAL_HANDLE_TIMEOUT = opts.timeout +
                 Math.floor(Math.random() * 100);
         }
 
@@ -30,8 +31,8 @@ process.nextTick(function onTick() {
         printHandles(console, mutableConfig);
 
         timeoutHandle = setTimeout(handleInspectionLoop,
-            printHandles.INTERVAL_HANDLE_TIMEOUT);
+            printHandle.INTERVAL_HANDLE_TIMEOUT);
         timeoutHandle.unref();
-    }, printHandles.INTERVAL_HANDLE_TIMEOUT);
+    }, printHandle.INTERVAL_HANDLE_TIMEOUT);
     timeoutHandle.unref();
 });
