@@ -60,6 +60,8 @@ function printHandles(console, config) {
             'httpAllowHalfOpen' in obj
         ) {
             printHttpServer(obj);
+        } else if ('connections' in obj) {
+            printTcpServer(obj);
         } else {
             console.log('unknown handle', obj);
         }
@@ -145,8 +147,9 @@ function printHandles(console, config) {
         var readable = obj.readable;
         var writable = obj.writable;
 
-        if (stacks.tcp.get(obj)) {
-            printStack(stacks.tcp.get(obj).stack, 'tcp handle');
+        if (stacks.tcp.requests.get(obj)) {
+            printStack(stacks.tcp.requests.get(obj).stack,
+                'tcp handle');
         }
 
         console.log(phrase, {
@@ -171,6 +174,20 @@ function printHandles(console, config) {
         });
     }
 
+    function printTcpServer(obj) {
+        var fd = obj._handle && obj._handle.fd;
+
+        if (stacks.tcp.servers.get(obj)) {
+            printStack(stacks.tcp.servers.get(obj).stack,
+                'tcp server handle');
+        }
+
+        console.log('tcp server handle', {
+            fd: fd,
+            address: obj.address()
+        });
+    }
+
     function printHttpStream(obj, phrase) {
         var fd = obj._handle && obj._handle.fd;
         var readable = obj.readable;
@@ -184,8 +201,9 @@ function printHandles(console, config) {
         if (httpRequest && stacks.http.requests.get(httpRequest)) {
             printStack(stacks.http.requests.get(httpRequest).stack,
                 'http handle');
-        } else if (stacks.tcp.get(obj)) {
-            printStack(stacks.tcp.get(obj).stack, 'tcp handle');
+        } else if (stacks.tcp.requests.get(obj)) {
+            printStack(stacks.tcp.requests.get(obj).stack,
+                'tcp handle');
         }
 
         console.log(phrase, {

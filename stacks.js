@@ -62,8 +62,10 @@ var childProcessStacks = (function () {
 var tcpStacks = (function () {
     var $net = require('net');
     var $createConnection = $net.createConnection;
+    var $createServer = $net.createServer;
 
-    var store = createStore();
+    var requestStore = createStore();
+    var serverStore = createStore();
 
     $net.createConnection = function fakeCreateConnection() {
         var stack = new Error().stack;
@@ -71,7 +73,7 @@ var tcpStacks = (function () {
         var $socket = $createConnection.apply(this, arguments);
         // var $addr = $socket.address();
 
-        var value = store($socket);
+        var value = requestStore($socket);
         value.meta = {
             stack: stack
         };
@@ -79,7 +81,23 @@ var tcpStacks = (function () {
         return $socket;
     };
 
-    return Box(store);
+    $net.createServer = function fakeCreateServer() {
+        var stack = new Error().stack;
+
+        var $server = $createServer.apply(this, arguments);
+
+        var value = serverStore($server);
+        value.meta = {
+            stack: stack
+        };
+
+        return $server;
+    };
+
+    return {
+        requests: Box(requestStore),
+        servers: Box(serverStore)
+    };
 }());
 
 function applyKeyedList(obj, key, v) {
