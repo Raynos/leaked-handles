@@ -10,6 +10,24 @@ var mutableExtend = require('xtend/mutable');
 
 var mutableConfig = {};
 
+(function wrapIt() {
+    var Socket = require('net').Socket;
+    var $emit = Socket.prototype.emit;
+
+    Socket.prototype.emit = function fakeEmit(type, value) {
+        if (type === 'error' && !this._events.error &&
+            mutableConfig.debugSockets
+        ) {
+            console.log('unhandled error', new Error().stack);
+            printHandle(this, console, mutableConfig);
+            // console.log('addr', this.address());
+            // console.log('server addr', this.server.address());
+        }
+
+        return $emit.apply(this, arguments);
+    };
+}());
+
 module.exports = {
     set: function set(opts) {
         mutableExtend(mutableConfig, opts);
