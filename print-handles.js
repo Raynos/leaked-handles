@@ -62,6 +62,8 @@ function printHandles(console, config) {
             printHttpServer(obj);
         } else if ('connections' in obj) {
             printTcpServer(obj);
+        } else if (stacks.fileWatcher.get(obj)) {
+            printFileWatcher(obj);
         } else {
             console.log('unknown handle', obj);
         }
@@ -157,6 +159,19 @@ function printHandles(console, config) {
             readable: readable,
             writable: writable,
             address: obj.address()
+        });
+    }
+
+    function printFileWatcher(obj) {
+        if (stacks.fileWatcher.get(obj)) {
+            printStack(stacks.fileWatcher.get(obj).stack,
+                'file watcher handle');
+        }
+
+        var meta = stacks.fileWatcher.get(obj);
+
+        console.log('file watcher handle', {
+            filename: meta.filename
         });
     }
 

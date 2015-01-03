@@ -1,3 +1,5 @@
+'use strict';
+
 var createStore = require('weakmap-shim/create-store');
 
 function Box(store) {
@@ -8,6 +10,31 @@ function Box(store) {
         return value && value.meta;
     }
 }
+
+var fsWatchStacks = (function wrapFSWatcher() {
+    var $fs = require('fs');
+
+    var watcher = $fs.watch(__filename);
+    watcher.close();
+    var $FSWatcher = watcher.constructor;
+    var $start = $FSWatcher.prototype.start;
+
+    var watchStore = createStore();
+
+    $FSWatcher.prototype.start = function fakeStart(file) {
+        var stack = new Error().stack;
+
+        var value = watchStore(this);
+        value.meta = {
+            stack: stack,
+            filename: file
+        };
+
+        return $start.apply(this, arguments);
+    };
+
+    return Box(watchStore);
+}());
 
 var childProcessStacks = (function () {
     var $childProcess = require('child_process');
@@ -194,5 +221,6 @@ module.exports = {
     http: httpStacks,
     timeout: timeoutStacks,
     tcp: tcpStacks,
-    childProcess: childProcessStacks
+    childProcess: childProcessStacks,
+    fileWatcher: fsWatchStacks
 };
