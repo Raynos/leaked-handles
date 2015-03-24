@@ -11,12 +11,12 @@ var mutableExtend = require('xtend/mutable');
 var mutableConfig = {};
 
 (function wrapIt() {
-    var Socket = require('net').Socket;
-    var $emit = Socket.prototype.emit;
+    var EventEmitter = require('events').EventEmitter;
+    var $emit = EventEmitter.prototype.emit;
 
-    Socket.prototype.emit = function fakeEmit(type, value) {
+    EventEmitter.prototype.emit = function fakeEmit(type, value) {
         if (type === 'error' && !this._events.error &&
-            mutableConfig.debugSockets
+            (mutableConfig.debugErrors || mutableConfig.debugSockets)
         ) {
             console.log('unhandled error', new Error().stack);
             printHandle(this, console, mutableConfig);
